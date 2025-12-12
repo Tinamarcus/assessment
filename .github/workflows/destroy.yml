@@ -1,4 +1,4 @@
-name: Destroy (UI only)
+name: Destroy
 
 on:
   workflow_dispatch:
@@ -90,6 +90,118 @@ jobs:
       - name: Terraform init
         working-directory: infrastructure
         run: terraform init -input=false
+
+      - name: Pre-destroy cleanup (empty S3 buckets + delete ECR images)
+        env:
+          AWS_REGION: ${{ inputs.aws_region }}
+        run: |
+          set -euo pipefail
+
+          cd infrastructure
+
+          echo "Pulling Terraform state to discover managed resources..."
+          terraform state pull > /tmp/tfstate.json
+
+          echo "Discovering managed S3 buckets..."
+          # Extract bucket names from state for aws_s3_bucket resources
+          mapfile -t BUCKETS < <(
+            jq -r '
+              .resources[]
+              | select(.type == "aws_s3_bucket")
+              | .instances[]
+              | .attributes.bucket
+            ' /tmp/tfstate.json | sort -u
+          )
+
+          if [ "${#BUCKETS[@]}" -eq 0 ]; then
+            echo "No S3 buckets found in state."
+          else
+            echo "Buckets found:"
+            printf '%s\n' "${BUCKETS[@]}"
+          fi
+
+          empty_versioned_bucket () {
+            local bucket="$1"
+            echo "Emptying versioned bucket: ${bucket}"
+
+            # Delete object versions + delete markers in chunks of 1000
+            while : ; do
+              local payload
+              payload="$(aws s3api list-object-versions \
+                --region "$AWS_REGION" \
+                --bucket "$bucket" \
+                --max-items 1000 \
+                --output json \
+                --query '{Objects: (Versions[].{Key:Key,VersionId:VersionId} || `[]`) + (DeleteMarkers[].{Key:Key,VersionId:VersionId} || `[]`)}')"
+
+              local count
+              count="$(echo "$payload" | jq -r '.Objects | length')"
+              if [ "$count" -eq 0 ]; then
+                break
+              fi
+
+              aws s3api delete-objects \
+                --region "$AWS_REGION" \
+                --bucket "$bucket" \
+                --delete "$payload" >/dev/null
+            done
+
+            # Also remove any remaining non-versioned objects (should be none, but harmless)
+            aws s3 rm "s3://${bucket}" --region "$AWS_REGION" --recursive >/dev/null || true
+            echo "Emptied: ${bucket}"
+          }
+
+          for b in "${BUCKETS[@]}"; do
+            # Don't fail the workflow if a bucket is already gone.
+            if aws s3api head-bucket --region "$AWS_REGION" --bucket "$b" >/dev/null 2>&1; then
+              empty_versioned_bucket "$b"
+            else
+              echo "Bucket not found (skipping): ${b}"
+            fi
+          done
+
+          echo "Discovering managed ECR repositories..."
+          mapfile -t REPOS < <(
+            jq -r '
+              .resources[]
+              | select(.type == "aws_ecr_repository")
+              | .instances[]
+              | .attributes.name
+            ' /tmp/tfstate.json | sort -u
+          )
+
+          if [ "${#REPOS[@]}" -eq 0 ]; then
+            echo "No ECR repositories found in state."
+          else
+            echo "ECR repositories found:"
+            printf '%s\n' "${REPOS[@]}"
+          fi
+
+          for repo in "${REPOS[@]}"; do
+            echo "Deleting images in ECR repo: ${repo}"
+            # Delete in batches (ECR batch-delete max 100 per call)
+            while : ; do
+              mapfile -t IMAGES < <(
+                aws ecr list-images \
+                  --region "$AWS_REGION" \
+                  --repository-name "$repo" \
+                  --query 'imageIds[*]' \
+                  --output json | jq -c '.[]' | head -n 100
+              )
+
+              if [ "${#IMAGES[@]}" -eq 0 ]; then
+                break
+              fi
+
+              # Build JSON array for batch-delete-image
+              printf '%s\n' "${IMAGES[@]}" | jq -cs '.' > /tmp/ecr_image_ids.json
+              aws ecr batch-delete-image \
+                --region "$AWS_REGION" \
+                --repository-name "$repo" \
+                --image-ids file:///tmp/ecr_image_ids.json >/dev/null || true
+            done
+            echo "Images deleted (or none present): ${repo}"
+          done
 
       - name: Terraform destroy
         working-directory: infrastructure
