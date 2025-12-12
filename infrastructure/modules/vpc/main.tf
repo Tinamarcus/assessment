@@ -53,6 +53,19 @@ resource "aws_subnet" "private" {
   )
 }
 
+resource "aws_subnet" "private_2" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, 3)
+  availability_zone = data.aws_availability_zones.available.names[1]
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.name_prefix}-private-subnet-2"
+    }
+  )
+}
+
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
@@ -113,6 +126,11 @@ resource "aws_route_table" "private" {
 
 resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.private.id
+  route_table_id = aws_route_table.private.id
+}
+
+resource "aws_route_table_association" "private_2" {
+  subnet_id      = aws_subnet.private_2.id
   route_table_id = aws_route_table.private.id
 }
 
