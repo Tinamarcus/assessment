@@ -44,14 +44,16 @@ jobs:
         soft_fail: true
 
     - name: Upload Checkov Infrastructure results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: checkov-infrastructure.sarif
+        category: checkov-infrastructure
 
     - name: Upload Checkov Kubernetes results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: checkov-kubernetes.sarif
+        category: checkov-kubernetes
 
   container-security-scan:
     name: Container Security Scan
@@ -76,9 +78,10 @@ jobs:
         exit-code: '0'
 
     - name: Upload Trivy filesystem results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-fs-results.sarif'
+        category: trivy-fs
 
   dependency-scan:
     name: Dependency Security Scan
@@ -103,7 +106,8 @@ jobs:
         scanners: 'vuln,secret'
 
     - name: Upload dependency scan results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: 'trivy-deps-results.sarif'
+        category: trivy-deps
 
