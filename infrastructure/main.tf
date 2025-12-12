@@ -70,6 +70,7 @@ module "mongodb" {
   vpc_id              = module.vpc.vpc_id
   public_subnet_id    = module.vpc.public_subnet_id
   private_subnet_cidr = module.vpc.private_subnet_cidr
+  vpc_cidr            = "10.0.0.0/16"
   backup_bucket_name  = module.s3.bucket_id
   instance_type       = "t3.medium"
   name_prefix         = "wiz-exercise"

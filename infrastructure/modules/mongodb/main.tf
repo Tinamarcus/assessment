@@ -1,6 +1,6 @@
 data "aws_ami" "ubuntu_20_04" {
   most_recent = true
-  owners = ["099720109477"]
+  owners      = ["099720109477"]
 
   filter {
     name   = "name"
@@ -42,13 +42,13 @@ resource "aws_security_group" "mongodb_vm" {
     description = "SSH from internet"
   }
 
-  # MongoDB from private subnet only
+  # MongoDB from VPC CIDR (covers multi-AZ private subnets)
   ingress {
-    from_port       = 27017
-    to_port         = 27017
-    protocol        = "tcp"
-    cidr_blocks     = [var.private_subnet_cidr]
-    description     = "MongoDB from K8s cluster"
+    from_port   = 27017
+    to_port     = 27017
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+    description = "MongoDB from K8s cluster"
   }
 
   egress {

@@ -13,6 +13,12 @@ variable "private_subnet_cidr" {
   type        = string
 }
 
+variable "vpc_cidr" {
+  description = "VPC CIDR block (used to allow MongoDB access from all private subnets)"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
 variable "backup_bucket_name" {
   description = "S3 bucket name for MongoDB backups"
   type        = string
