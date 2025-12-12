@@ -153,7 +153,7 @@ jobs:
                 aws s3api delete-objects \
                   --region "$AWS_REGION" \
                   --bucket "$bucket" \
-                  --delete "$payload" >/dev/null
+                  --delete file:///tmp/s3_delete_payload.json >/dev/null
               fi
 
               # No more pages and nothing to delete
