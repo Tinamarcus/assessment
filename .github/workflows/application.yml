@@ -86,7 +86,9 @@ jobs:
         ignore-unfixed: false
 
     - name: Upload Trivy results to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
+      # If GitHub Code Scanning / GHAS isn't enabled, don't fail the deploy
+      continue-on-error: true
       with:
         sarif_file: 'trivy-results.sarif'
 
@@ -97,7 +99,7 @@ jobs:
       continue-on-error: true
 
     - name: Upload Go security results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       if: always()
       continue-on-error: true
       with:
@@ -115,12 +117,28 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    - name: Update container image in deployment manifest
+    - name: Generate Kubernetes manifests from templates (Terraform outputs)
       run: |
-        # Update the container image in the committed deployment.yaml
-        # MongoDB IP is already correct from terraform apply, we just need to update the image
-        sed -i "s|image:.*|image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}|" kubernetes/deployment.yaml
-        echo "Updated deployment.yaml with new image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}"
+        # Resolve runtime values
+        export container_image="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}"
+
+        # Pull Terraform outputs from remote state
+        terraform -chdir=infrastructure init -input=false
+        export mongodb_private_ip="$(terraform -chdir=infrastructure output -raw mongodb_vm_private_ip)"
+
+        if [ -z "$mongodb_private_ip" ]; then
+          echo "mongodb_vm_private_ip output is empty" >&2
+          exit 1
+        fi
+
+        # Generate manifests from templates
+        mkdir -p kubernetes
+        envsubst < kubernetes/templates/deployment.yaml.tpl > kubernetes/deployment.yaml
+        cp kubernetes/templates/ingress.yaml.tpl kubernetes/ingress.yaml
+
+        echo "Generated kubernetes/deployment.yaml and kubernetes/ingress.yaml"
+        echo "Using image: $container_image"
+        echo "Using MongoDB private IP: $mongodb_private_ip"
 
     - name: Update kubeconfig
       run: |
