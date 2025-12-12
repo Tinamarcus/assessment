@@ -1,0 +1,100 @@
+name: Destroy (UI only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type DESTROY to confirm. This will delete the entire resources."
+        required: true
+        type: string
+      aws_region:
+        description: "AWS region"
+        required: true
+        default: "us-east-2"
+        type: string
+      cluster_name:
+        description: "EKS cluster name (used for pre-destroy cleanup)"
+        required: true
+        default: "wiz-exercise-cluster"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiz-exercise-destroy
+  cancel-in-progress: false
+
+jobs:
+  destroy:
+    name: Destroy all resources
+    environment: destroy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require typed confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "DESTROY" ]; then
+            echo "Refusing to run: inputs.confirm must equal DESTROY"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Install tools (kubectl + terraform)
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y unzip jq
+
+          # kubectl
+          curl -sSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x /usr/local/bin/kubectl
+
+          # terraform
+          TF_VERSION="1.5.5"
+          curl -sSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
+          sudo unzip -o /tmp/terraform.zip -d /usr/local/bin
+          terraform -version
+
+      - name: Pre-destroy cleanup (delete ingress/app to allow ALB teardown)
+        run: |
+          set -euo pipefail
+
+          if aws eks describe-cluster --name "${{ inputs.cluster_name }}" --region "${{ inputs.aws_region }}" >/dev/null 2>&1; then
+            aws eks update-kubeconfig --name "${{ inputs.cluster_name }}" --region "${{ inputs.aws_region }}"
+
+            # Delete app manifests (ignore if already gone)
+            kubectl delete -f kubernetes/ --ignore-not-found=true || true
+
+            # Give the controller some time to delete ALB resources
+            for i in $(seq 1 30); do
+              echo "Waiting for ingress cleanup ($i/30)..."
+              if ! kubectl get ingress -A 2>/dev/null | grep -q "alb"; then
+                break
+              fi
+              sleep 10
+            done
+          else
+            echo "EKS cluster not found; skipping kubectl cleanup."
+          fi
+
+      - name: Terraform init
+        working-directory: infrastructure
+        run: terraform init -input=false
+
+      - name: Terraform destroy
+        working-directory: infrastructure
+        env:
+          TF_IN_AUTOMATION: "true"
+        run: terraform destroy -auto-approve -input=false
+
+
