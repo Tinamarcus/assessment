@@ -20,10 +20,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket  = "tf-state-bkt-11"
-    key     = "terraform.tfstate"
-    region  = "us-east-2"
-    encrypt = true
+    bucket         = "your-terraform-state-bucket"
+    key            = "wiz-exercise/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
   }
 }
 
@@ -44,6 +44,7 @@ module "vpc" {
   vpc_cidr            = "10.0.0.0/16"
   public_subnet_cidr  = "10.0.1.0/24"
   private_subnet_cidr = "10.0.2.0/24"
+  cluster_name        = var.cluster_name
   name_prefix         = "wiz-exercise"
   tags                = local.common_tags
 }
@@ -86,8 +87,6 @@ module "eks" {
   kubernetes_version = "1.28"
   name_prefix        = "wiz-exercise"
   tags               = local.common_tags
-
-  depends_on = [module.vpc]
 }
 
 module "security" {
