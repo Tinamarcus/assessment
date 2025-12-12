@@ -6,6 +6,26 @@ let editId,isEditTask,editStatus = false
 var userid = changeUsername();
 fetchTodos().then(data => showTodo("all",data,true));
 allTodos = "";
+
+// Logout support (clears cookies server-side and returns to login page)
+const logoutBtn = document.getElementById("logout-btn");
+if (logoutBtn) {
+    logoutBtn.addEventListener("click", async () => {
+        try {
+            await fetch("/logout", { method: "POST" });
+        } finally {
+            window.location.href = "/";
+        }
+    });
+}
+
+// Add-task button (same behavior as pressing Enter in the input)
+const addTaskBtn = document.getElementById("add-task-btn");
+if (addTaskBtn) {
+    addTaskBtn.addEventListener("click", () => {
+        submitTask();
+    });
+}
 filters.forEach(btn => {
     btn.addEventListener("click", () => {
         document.querySelector("span.active").classList.remove("active");
@@ -122,28 +142,34 @@ clearAll.addEventListener("click", () => {
 });
 
 taskInput.addEventListener("keyup", e => {
-    let userTask = taskInput.value.trim();
-    if(e.key == "Enter" && userTask) {
-        if(!isEditTask) {
-            allTodos = !allTodos ? [] : allTodos;
-            let taskInfo = {name: userTask, status: "pending"};
-            addTodo(taskInfo).then(data => {
-                if(!data["error"]) {
-                    taskInfo["ID"] = data["insertedId"];
-                    allTodos.push(taskInfo);
-                    showTodo(document.querySelector("span.active").id,"",false);
-                    console.log(data);
-                }
-            });
-        } else {
-            isEditTask = false;
-            updateTodo(editId,userTask,editStatus).then(data => console.log(data));
-            findAndEditTodo(editId,userTask,editStatus);
-            showTodo(document.querySelector("span.active").id,"",false);
-        }
-        taskInput.value = "";
+    if(e.key == "Enter") {
+        submitTask();
     }
 });
+
+function submitTask() {
+    let userTask = taskInput.value.trim();
+    if(!userTask) return;
+
+    if(!isEditTask) {
+        allTodos = !allTodos ? [] : allTodos;
+        let taskInfo = {name: userTask, status: "pending"};
+        addTodo(taskInfo).then(data => {
+            if(!data["error"]) {
+                taskInfo["ID"] = data["insertedId"];
+                allTodos.push(taskInfo);
+                showTodo(document.querySelector("span.active").id,"",false);
+                console.log(data);
+            }
+        });
+    } else {
+        isEditTask = false;
+        updateTodo(editId,userTask,editStatus).then(data => console.log(data));
+        findAndEditTodo(editId,userTask,editStatus);
+        showTodo(document.querySelector("span.active").id,"",false);
+    }
+    taskInput.value = "";
+}
 
 
 function findAndDeleteTodo(id) {

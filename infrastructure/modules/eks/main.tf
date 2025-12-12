@@ -230,6 +230,7 @@ resource "aws_iam_role_policy" "alb_controller" {
           "ec2:DescribeAddresses",
           "ec2:DescribeAvailabilityZones",
           "ec2:DescribeInternetGateways",
+          "ec2:GetSecurityGroupsForVpc",
           "ec2:DescribeVpcs",
           "ec2:DescribeVpcPeeringConnections",
           "ec2:DescribeSubnets",
@@ -252,6 +253,15 @@ resource "aws_iam_role_policy" "alb_controller" {
           "tag:GetResources",
           "tag:TagResources",
           "tag:UntagResources"
+        ]
+        Resource = "*"
+      },
+      # The controller checks WAFv2 + Shield state during reconcile; missing permissions can block status updates.
+      {
+        Effect = "Allow"
+        Action = [
+          "wafv2:GetWebACLForResource",
+          "shield:GetSubscriptionState"
         ]
         Resource = "*"
       },
@@ -333,6 +343,23 @@ resource "helm_release" "alb_controller" {
   set {
     name  = "region"
     value = data.aws_region.current.name
+  }
+
+  # Some restricted lab accounts block Shield/WAF APIs via org/SCP; disable optional integrations
+  # so ingress reconciliation (and ALB status updates) can proceed.
+  set {
+    name  = "enableShield"
+    value = "false"
+  }
+
+  set {
+    name  = "enableWaf"
+    value = "false"
+  }
+
+  set {
+    name  = "enableWafV2"
+    value = "false"
   }
 
   depends_on = [

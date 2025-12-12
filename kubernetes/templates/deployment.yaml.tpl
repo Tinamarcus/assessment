@@ -25,7 +25,7 @@ spec:
           name: http
         env:
         - name: MONGODB_URI
-          value: "mongodb://appuser:apppass123@${mongodb_private_ip}:27017/go-mongodb?authSource=go-mongodb"
+          value: "mongodb://appuser:apppass123@${mongodb_private_ip}:27017/go-mongodb?authSource=go-mongodb&authMechanism=SCRAM-SHA-256"
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:

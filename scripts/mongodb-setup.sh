@@ -56,22 +56,39 @@ systemctl start mongod
 # Wait for MongoDB to start
 sleep 10
 
-# Create admin user and application user
-mongosh --eval "
-db = db.getSiblingDB('admin');
-db.createUser({
-  user: 'admin',
-  pwd: 'admin123',
-  roles: [{ role: 'root', db: 'admin' }]
-});
+# Create admin user and application user (idempotent).
+# NOTE: Some shells/versions don't fail the process on JS errors, so we verify explicitly.
+cat > /tmp/wiz-init-users.js <<'EOF'
+function ensureUser(dbName, user, pwd, roles) {
+  const d = db.getSiblingDB(dbName);
+  const existing = d.getUser(user);
+  if (!existing) {
+    print(`Creating user ${dbName}.${user}`);
+    d.createUser({ user, pwd, roles });
+  } else {
+    print(`User already exists: ${dbName}.${user}`);
+  }
+}
 
-db = db.getSiblingDB('go-mongodb');
-db.createUser({
-  user: 'appuser',
-  pwd: 'apppass123',
-  roles: [{ role: 'readWrite', db: 'go-mongodb' }]
-});
-"
+ensureUser("admin", "admin", "admin123", [{ role: "root", db: "admin" }]);
+ensureUser("go-mongodb", "appuser", "apppass123", [{ role: "readWrite", db: "go-mongodb" }]);
+EOF
+
+MONGO_SHELL=""
+if command -v mongosh >/dev/null 2>&1; then
+  MONGO_SHELL="mongosh"
+elif command -v mongo >/dev/null 2>&1; then
+  MONGO_SHELL="mongo"
+else
+  echo "ERROR: No Mongo shell (mongosh/mongo) found; cannot initialize users." >&2
+  exit 1
+fi
+
+${MONGO_SHELL} --quiet /tmp/wiz-init-users.js
+
+# Verify users exist (fail fast if not)
+${MONGO_SHELL} --quiet --eval "db.getSiblingDB('admin').getUser('admin') ? 0 : (print('MISSING admin user'), 1)"
+${MONGO_SHELL} --quiet --eval "db.getSiblingDB('go-mongodb').getUser('appuser') ? 0 : (print('MISSING appuser in go-mongodb'), 1)"
 
 # Install AWS CLI for backups
 apt-get install -y awscli
