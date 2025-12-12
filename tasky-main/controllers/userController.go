@@ -63,20 +63,29 @@ func SignUp(c *gin.Context) {
 	}
 
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:    "token",
-		Value:   token,
-		Expires: expirationTime,
+		Name:     "token",
+		Value:    token,
+		Expires:  expirationTime,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:    "userID",
-		Value:   userId,
-		Expires: expirationTime,
+		Name:     "userID",
+		Value:    userId,
+		Expires:  expirationTime,
+		Path:     "/",
+		HttpOnly: false,
+		SameSite: http.SameSiteLaxMode,
 	})
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:    "username",
-		Value:   username,
-		Expires: expirationTime,
+		Name:     "username",
+		Value:    username,
+		Expires:  expirationTime,
+		Path:     "/",
+		HttpOnly: false,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	c.JSON(http.StatusOK, resultInsertionNumber)
@@ -129,42 +138,58 @@ func Login(c *gin.Context) {
 		}
 
 		http.SetCookie(c.Writer, &http.Cookie{
-			Name:    "token",
-			Value:   token,
-			Expires: expirationTime,
+			Name:     "token",
+			Value:    token,
+			Expires:  expirationTime,
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		http.SetCookie(c.Writer, &http.Cookie{
-			Name:    "userID",
-			Value:   userId,
-			Expires: expirationTime,
+			Name:     "userID",
+			Value:    userId,
+			Expires:  expirationTime,
+			Path:     "/",
+			HttpOnly: false,
+			SameSite: http.SameSiteLaxMode,
 		})
 		http.SetCookie(c.Writer, &http.Cookie{
-			Name:    "username",
-			Value:   username,
-			Expires: expirationTime,
+			Name:     "username",
+			Value:    username,
+			Expires:  expirationTime,
+			Path:     "/",
+			HttpOnly: false,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 	} else {
 		http.SetCookie(c.Writer, &http.Cookie{
-			Name:    "userID",
-			Value:   userId,
-			Expires: expirationTime,
+			Name:     "userID",
+			Value:    userId,
+			Expires:  expirationTime,
+			Path:     "/",
+			HttpOnly: false,
+			SameSite: http.SameSiteLaxMode,
 		})
 		http.SetCookie(c.Writer, &http.Cookie{
-			Name:    "username",
-			Value:   username,
-			Expires: expirationTime,
+			Name:     "username",
+			Value:    username,
+			Expires:  expirationTime,
+			Path:     "/",
+			HttpOnly: false,
+			SameSite: http.SameSiteLaxMode,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{"msg": "login successful"})
 }
 
 func Todo(c *gin.Context) {
-	session := auth.ValidateSession(c)
-	if session {
-		c.HTML(http.StatusOK, "todo.html", nil)
+	if !auth.IsSessionValid(c) {
+		c.Redirect(http.StatusFound, "/")
+		return
 	}
+	c.HTML(http.StatusOK, "todo.html", nil)
 }
 
 func Logout(c *gin.Context) {
