@@ -43,6 +43,12 @@ variable "node_instance_types" {
   default     = ["t3.medium"]
 }
 
+variable "node_ami_type" {
+  description = "AMI type for EKS managed node group"
+  type        = string
+  default     = "AL2_x86_64"
+}
+
 variable "name_prefix" {
   description = "Prefix for resource names"
   type        = string

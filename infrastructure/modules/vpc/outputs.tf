@@ -8,6 +8,11 @@ output "public_subnet_id" {
   value       = aws_subnet.public.id
 }
 
+output "public_subnet_ids" {
+  description = "Public subnet IDs (multi-AZ)"
+  value       = [aws_subnet.public.id, aws_subnet.public_2.id]
+}
+
 output "private_subnet_id" {
   description = "Private subnet ID"
   value       = aws_subnet.private.id
@@ -26,9 +31,4 @@ output "public_subnet_cidr" {
 output "private_subnet_cidr" {
   description = "Private subnet CIDR block"
   value       = aws_subnet.private.cidr_block
-}
-
-output "private_subnet_cidrs" {
-  description = "Private subnet CIDR blocks (multi-AZ)"
-  value       = [aws_subnet.private.cidr_block, aws_subnet.private_2.cidr_block]
 }

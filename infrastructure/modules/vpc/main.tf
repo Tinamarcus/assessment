@@ -36,7 +36,29 @@ resource "aws_subnet" "public" {
     var.tags,
     {
       Name = "${var.name_prefix}-public-subnet"
-    }
+      "kubernetes.io/role/elb" = "1"
+    },
+    var.cluster_name != "" ? {
+      "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    } : {}
+  )
+}
+
+resource "aws_subnet" "public_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, 4)
+  availability_zone       = data.aws_availability_zones.available.names[1]
+  map_public_ip_on_launch = true
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.name_prefix}-public-subnet-2"
+      "kubernetes.io/role/elb" = "1"
+    },
+    var.cluster_name != "" ? {
+      "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    } : {}
   )
 }
 
@@ -49,7 +71,11 @@ resource "aws_subnet" "private" {
     var.tags,
     {
       Name = "${var.name_prefix}-private-subnet"
-    }
+      "kubernetes.io/role/internal-elb" = "1"
+    },
+    var.cluster_name != "" ? {
+      "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    } : {}
   )
 }
 
@@ -62,7 +88,11 @@ resource "aws_subnet" "private_2" {
     var.tags,
     {
       Name = "${var.name_prefix}-private-subnet-2"
-    }
+      "kubernetes.io/role/internal-elb" = "1"
+    },
+    var.cluster_name != "" ? {
+      "kubernetes.io/cluster/${var.cluster_name}" = "shared"
+    } : {}
   )
 }
 
@@ -87,10 +117,14 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-# EIP for NAT gateway - had issues with domain parameter initially
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.public.id
+}
+
 resource "aws_eip" "nat" {
   domain = "vpc"
-  
+
   tags = merge(var.tags, {
     Name = "${var.name_prefix}-nat-eip"
   })

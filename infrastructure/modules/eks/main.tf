@@ -95,6 +95,8 @@ resource "aws_eks_node_group" "main" {
   node_group_name = "${var.name_prefix}-nodegroup"
   node_role_arn   = aws_iam_role.eks_node.arn
   subnet_ids      = var.private_subnet_ids
+  version         = var.kubernetes_version
+  ami_type        = var.node_ami_type
 
   scaling_config {
     desired_size = var.node_group_desired_size
@@ -114,26 +116,6 @@ resource "aws_eks_node_group" "main" {
     var.tags,
     {
       Name = "${var.name_prefix}-nodegroup"
-    }
-  )
-}
-
-resource "aws_security_group" "eks_cluster" {
-  name        = "${var.name_prefix}-eks-cluster-sg"
-  description = "Security group for EKS cluster"
-  vpc_id      = var.vpc_id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(
-    var.tags,
-    {
-      Name = "${var.name_prefix}-eks-cluster-sg"
     }
   )
 }
