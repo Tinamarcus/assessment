@@ -20,9 +20,9 @@ terraform {
   }
 
   backend "s3" {
-    bucket  = "your-terraform-state-bucket"
-    key     = "wiz-exercise/terraform.tfstate"
-    region  = "us-east-1"
+    bucket  = "tf-state-bkt-11"
+    key     = "terraform.tfstate"
+    region  = "us-east-2"
     encrypt = true
   }
 }
