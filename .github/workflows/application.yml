@@ -1,0 +1,135 @@
+name: Build and Deploy Application
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'tasky-main/**'
+  workflow_run:
+    workflows: ["Deploy Infrastructure"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-2
+  ECR_REPOSITORY: tasky
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # Only run if triggered by workflow_run and the infrastructure pipeline succeeded
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Set commit SHA
+      id: vars
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_run" ]; then
+          echo "sha=${{ github.event.workflow_run.head_sha }}" >> $GITHUB_OUTPUT
+        else
+          echo "sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        # When triggered by workflow_run, use the commit from that workflow
+        ref: ${{ steps.vars.outputs.sha }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Ensure ECR repository exists
+      run: |
+        aws ecr describe-repositories --repository-names "${{ env.ECR_REPOSITORY }}" --region "${{ env.AWS_REGION }}" >/dev/null 2>&1 || \
+        aws ecr create-repository --repository-name "${{ env.ECR_REPOSITORY }}" --region "${{ env.AWS_REGION }}" >/dev/null
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./tasky-main
+        push: false
+        tags: |
+          ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        load: true
+
+    - name: Run Trivy vulnerability scanner on container image
+      id: trivy-scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        exit-code: '0'
+        severity: 'CRITICAL,HIGH'
+        ignore-unfixed: false
+
+    - name: Upload Trivy results to GitHub Security
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run Go security scan (gosec)
+      uses: securego/gosec@master
+      with:
+        args: '-no-fail -fmt sarif -out gosec-results.sarif ./tasky-main/...'
+      continue-on-error: true
+
+    - name: Upload Go security results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      continue-on-error: true
+      with:
+        sarif_file: gosec-results.sarif
+
+    - name: Push Docker image to registry
+      if: success()
+      uses: docker/build-push-action@v5
+      with:
+        context: ./tasky-main
+        push: true
+        tags: |
+          ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Update container image in deployment manifest
+      run: |
+        # Update the container image in the committed deployment.yaml
+        # MongoDB IP is already correct from terraform apply, we just need to update the image
+        sed -i "s|image:.*|image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}|" kubernetes/deployment.yaml
+        echo "Updated deployment.yaml with new image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}"
+
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --name wiz-exercise-cluster --region ${{ env.AWS_REGION }}
+
+    - name: Deploy to Kubernetes
+      run: |
+        # Apply all Kubernetes manifests
+        kubectl apply -f kubernetes/
+        
+        # Wait for rollout
+        kubectl rollout status deployment/tasky-app -n wiz-exercise --timeout=5m
+
