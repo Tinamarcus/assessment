@@ -17,6 +17,7 @@ jobs:
     name: IaC Security Scan
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
 
@@ -56,6 +57,7 @@ jobs:
     name: Container Security Scan
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
       packages: read
@@ -82,6 +84,7 @@ jobs:
     name: Dependency Security Scan
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       security-events: write
 

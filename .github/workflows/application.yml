@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-east-2
+  AWS_REGION: us-east-1
   ECR_REPOSITORY: tasky
 
 jobs:
@@ -24,6 +24,7 @@ jobs:
     # Only run if triggered by workflow_run and the infrastructure pipeline succeeded
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run'
     permissions:
+      actions: read
       contents: read
       security-events: write
 
