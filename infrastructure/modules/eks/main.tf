@@ -42,7 +42,9 @@ resource "aws_eks_cluster" "main" {
   vpc_config {
     subnet_ids              = var.private_subnet_ids
     endpoint_private_access = true
-    endpoint_public_access  = false
+    # Enable public endpoint access for CI/CD.
+    endpoint_public_access = true
+    public_access_cidrs    = ["0.0.0.0/0"]
   }
 
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
@@ -72,7 +74,7 @@ resource "aws_iam_role" "eks_node" {
       }
     ]
   })
-  
+
 }
 
 resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {

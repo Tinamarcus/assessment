@@ -152,7 +152,7 @@ jobs:
     - name: Deploy to Kubernetes
       run: |
         # Apply all Kubernetes manifests
-        kubectl apply -f kubernetes/
+        kubectl apply --validate=false -f kubernetes/
         
         # Wait for rollout
         kubectl rollout status deployment/tasky-app -n wiz-exercise --timeout=5m
