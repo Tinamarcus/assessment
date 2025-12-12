@@ -20,10 +20,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "tf-state-bkt-11"
-    key            = "terraform.tfstate"
-    region         = "us-east-2"
-    encrypt        = true
+    bucket  = "tf-state-bkt-11"
+    key     = "terraform.tfstate"
+    region  = "us-east-2"
+    encrypt = true
   }
 }
 
