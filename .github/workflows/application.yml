@@ -63,7 +63,7 @@ jobs:
         aws ecr create-repository --repository-name "${{ env.ECR_REPOSITORY }}" --region "${{ env.AWS_REGION }}" >/dev/null
 
     - name: Build Docker image
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: ./tasky-main
         push: false
@@ -104,7 +104,7 @@ jobs:
 
     - name: Push Docker image to registry
       if: success()
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: ./tasky-main
         push: true
