@@ -125,25 +125,41 @@ jobs:
             echo "Emptying versioned bucket: ${bucket}"
 
             # Delete object versions + delete markers in chunks of 1000
+            local token=""
             while : ; do
-              local payload
-              payload="$(aws s3api list-object-versions \
-                --region "$AWS_REGION" \
-                --bucket "$bucket" \
-                --max-items 1000 \
-                --output json \
-                --query '{Objects: (Versions[].{Key:Key,VersionId:VersionId} || `[]`) + (DeleteMarkers[].{Key:Key,VersionId:VersionId} || `[]`)}')"
+              local resp payload count
 
-              local count
-              count="$(echo "$payload" | jq -r '.Objects | length')"
-              if [ "$count" -eq 0 ]; then
-                break
+              if [ -n "$token" ]; then
+                resp="$(aws s3api list-object-versions \
+                  --region "$AWS_REGION" \
+                  --bucket "$bucket" \
+                  --max-items 1000 \
+                  --starting-token "$token" \
+                  --output json)"
+              else
+                resp="$(aws s3api list-object-versions \
+                  --region "$AWS_REGION" \
+                  --bucket "$bucket" \
+                  --max-items 1000 \
+                  --output json)"
               fi
 
-              aws s3api delete-objects \
-                --region "$AWS_REGION" \
-                --bucket "$bucket" \
-                --delete "$payload" >/dev/null
+              # Build the delete payload with jq (AWS CLI JMESPath doesn't support array concatenation)
+              payload="$(echo "$resp" | jq '{Objects: ([.Versions[]? | {Key:.Key,VersionId:.VersionId}] + [.DeleteMarkers[]? | {Key:.Key,VersionId:.VersionId}])}')"
+              count="$(echo "$payload" | jq -r '.Objects | length')"
+              token="$(echo "$resp" | jq -r '.NextToken // empty')"
+
+              if [ "$count" -gt 0 ]; then
+                aws s3api delete-objects \
+                  --region "$AWS_REGION" \
+                  --bucket "$bucket" \
+                  --delete "$payload" >/dev/null
+              fi
+
+              # No more pages and nothing to delete
+              if [ -z "$token" ] && [ "$count" -eq 0 ]; then
+                break
+              fi
             done
 
             # Also remove any remaining non-versioned objects (should be none, but harmless)
@@ -208,5 +224,3 @@ jobs:
         env:
           TF_IN_AUTOMATION: "true"
         run: terraform destroy -auto-approve -input=false
-
-
