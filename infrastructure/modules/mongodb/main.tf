@@ -27,13 +27,12 @@ resource "aws_key_pair" "main" {
   }
 }
 
-# Security Group for MongoDB VM (SSH exposed to internet - intentional weakness)
+# MongoDB VM security group
 resource "aws_security_group" "mongodb_vm" {
   name        = "${var.name_prefix}-mongodb-vm-sg"
   description = "Security group for MongoDB VM - SSH exposed to internet"
   vpc_id      = var.vpc_id
 
-  # SSH from internet (intentional security weakness)
   ingress {
     from_port   = 22
     to_port     = 22
@@ -42,7 +41,7 @@ resource "aws_security_group" "mongodb_vm" {
     description = "SSH from internet"
   }
 
-  # MongoDB from VPC CIDR (covers multi-AZ private subnets)
+  # Reachable from within the VPC (EKS private subnets)
   ingress {
     from_port   = 27017
     to_port     = 27017
@@ -66,7 +65,7 @@ resource "aws_security_group" "mongodb_vm" {
   )
 }
 
-# IAM Role for MongoDB VM (overly permissive - intentional weakness)
+# MongoDB VM IAM role
 resource "aws_iam_role" "mongodb_vm" {
   name = "${var.name_prefix}-mongodb-vm-role"
 
@@ -91,9 +90,8 @@ resource "aws_iam_role" "mongodb_vm" {
   )
 }
 
-# Overly permissive IAM policy (intentional weakness - can create VMs)
-resource "aws_iam_role_policy" "mongodb_vm_permissive" {
-  name = "${var.name_prefix}-mongodb-vm-permissive-policy"
+resource "aws_iam_role_policy" "mongodb_vm_policy" {
+  name = "${var.name_prefix}-mongodb-vm-policy"
   role = aws_iam_role.mongodb_vm.id
 
   policy = jsonencode({
@@ -117,7 +115,7 @@ resource "aws_iam_instance_profile" "mongodb_vm" {
   role = aws_iam_role.mongodb_vm.name
 }
 
-# MongoDB instance - using t3.medium for now, might need to adjust based on load
+# MongoDB EC2 instance
 resource "aws_instance" "mongodb" {
   ami                    = data.aws_ami.ubuntu_20_04.id
   instance_type          = var.instance_type
@@ -131,8 +129,4 @@ resource "aws_instance" "mongodb" {
     "__S3_BUCKET_NAME__",
     var.backup_bucket_name
   )
-
-  tags = merge(var.tags, {
-    Name = "${var.name_prefix}-mongodb-vm"
-  })
 }

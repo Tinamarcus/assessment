@@ -13,13 +13,13 @@ variable "bucket_name" {
 variable "cluster_name" {
   description = "Name of the EKS cluster"
   type        = string
-  default     = "wiz-exercise-cluster"
+  default     = "tina-cluster"
 }
 
 variable "ecr_repository_name" {
   description = "ECR repository name for the application image"
   type        = string
-  default     = "tasky"
+  default     = "images"
 }
 
 variable "container_image" {
@@ -28,3 +28,8 @@ variable "container_image" {
   default     = "REPLACE_ME_IN_CI"
 }
 
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN to enable HTTPS on the ALB Ingress."
+  type        = string
+  default     = ""
+}

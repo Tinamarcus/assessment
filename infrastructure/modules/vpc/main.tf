@@ -35,7 +35,7 @@ resource "aws_subnet" "public" {
   tags = merge(
     var.tags,
     {
-      Name = "${var.name_prefix}-public-subnet"
+      Name                     = "${var.name_prefix}-public-subnet"
       "kubernetes.io/role/elb" = "1"
     },
     var.cluster_name != "" ? {
@@ -53,7 +53,7 @@ resource "aws_subnet" "public_2" {
   tags = merge(
     var.tags,
     {
-      Name = "${var.name_prefix}-public-subnet-2"
+      Name                     = "${var.name_prefix}-public-subnet-2"
       "kubernetes.io/role/elb" = "1"
     },
     var.cluster_name != "" ? {
@@ -70,7 +70,7 @@ resource "aws_subnet" "private" {
   tags = merge(
     var.tags,
     {
-      Name = "${var.name_prefix}-private-subnet"
+      Name                              = "${var.name_prefix}-private-subnet"
       "kubernetes.io/role/internal-elb" = "1"
     },
     var.cluster_name != "" ? {
@@ -87,7 +87,7 @@ resource "aws_subnet" "private_2" {
   tags = merge(
     var.tags,
     {
-      Name = "${var.name_prefix}-private-subnet-2"
+      Name                              = "${var.name_prefix}-private-subnet-2"
       "kubernetes.io/role/internal-elb" = "1"
     },
     var.cluster_name != "" ? {

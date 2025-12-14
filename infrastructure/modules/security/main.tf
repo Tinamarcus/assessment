@@ -6,8 +6,8 @@ resource "aws_cloudtrail" "main" {
   is_multi_region_trail         = true
 
   event_selector {
-    read_write_type                 = "All"
-    include_management_events      = true
+    read_write_type           = "All"
+    include_management_events = true
 
     data_resource {
       type   = "AWS::S3::Object"

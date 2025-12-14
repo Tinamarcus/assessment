@@ -4,7 +4,9 @@ locals {
       container_image    = var.container_image
       mongodb_private_ip = module.mongodb.private_ip
     })
-    ingress = templatefile("${path.module}/../kubernetes/templates/ingress.yaml.tpl", {})
+    ingress = templatefile("${path.module}/../kubernetes/templates/ingress.yaml.tpl", {
+      acm_certificate_arn = var.acm_certificate_arn
+    })
   }
 }
 
@@ -24,4 +26,3 @@ output "kubernetes_manifests_generated" {
   description = "Kubernetes manifest files have been generated"
   value       = "Manifests generated in kubernetes/ directory"
 }
-

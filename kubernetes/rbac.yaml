@@ -1,13 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: tasky-app-cluster-admin
+  name: tina-rbac
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: cluster-admin
 subjects:
 - kind: ServiceAccount
-  name: tasky-app-sa
-  namespace: wiz-exercise
-
+  name: tina-sa
+  namespace: tina-ns

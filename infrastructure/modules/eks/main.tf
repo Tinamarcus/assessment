@@ -68,9 +68,8 @@ resource "aws_eks_cluster" "main" {
   vpc_config {
     subnet_ids              = var.private_subnet_ids
     endpoint_private_access = true
-    # Enable public endpoint access for CI/CD.
-    endpoint_public_access = true
-    public_access_cidrs    = ["0.0.0.0/0"]
+    endpoint_public_access  = true
+    public_access_cidrs     = ["0.0.0.0/0"]
   }
 
   enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
@@ -209,7 +208,6 @@ resource "aws_iam_role_policy" "alb_controller" {
   name = "${var.name_prefix}-alb-controller-policy"
   role = aws_iam_role.alb_controller.id
 
-  # Policy based on AWS Load Balancer Controller IAM policy (trimmed for exercise usage).
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -256,7 +254,6 @@ resource "aws_iam_role_policy" "alb_controller" {
         ]
         Resource = "*"
       },
-      # The controller checks WAFv2 + Shield state during reconcile; missing permissions can block status updates.
       {
         Effect = "Allow"
         Action = [
@@ -345,8 +342,6 @@ resource "helm_release" "alb_controller" {
     value = data.aws_region.current.name
   }
 
-  # Some restricted lab accounts block Shield/WAF APIs via org/SCP; disable optional integrations
-  # so ingress reconciliation (and ALB status updates) can proceed.
   set {
     name  = "enableShield"
     value = "false"

@@ -15,7 +15,7 @@ on:
       cluster_name:
         description: "EKS cluster name (used for pre-destroy cleanup)"
         required: true
-        default: "wiz-exercise-cluster"
+        default: "tina-cluster"
         type: string
 
 permissions:
@@ -35,7 +35,7 @@ jobs:
       - name: Require typed confirmation
         run: |
           if [ "${{ inputs.confirm }}" != "DESTROY" ]; then
-            echo "Refusing to run: inputs.confirm must equal DESTROY"
+            echo "Confirmation failed: inputs.confirm must equal DESTROY"
             exit 1
           fi
 
@@ -47,20 +47,17 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ inputs.aws_region }}
 
-      - name: Install tools (kubectl + terraform)
+      - name: Install tools
         run: |
           set -euo pipefail
           sudo apt-get update -y
           sudo apt-get install -y unzip jq
 
-          # kubectl
           curl -sSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x /usr/local/bin/kubectl
 
-          # terraform
           TF_VERSION="1.5.5"
           curl -sSLo /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
           sudo unzip -o /tmp/terraform.zip -d /usr/local/bin
@@ -73,10 +70,8 @@ jobs:
           if aws eks describe-cluster --name "${{ inputs.cluster_name }}" --region "${{ inputs.aws_region }}" >/dev/null 2>&1; then
             aws eks update-kubeconfig --name "${{ inputs.cluster_name }}" --region "${{ inputs.aws_region }}"
 
-            # Delete app manifests (ignore if already gone)
             kubectl delete -f kubernetes/ --ignore-not-found=true || true
 
-            # Give the controller some time to delete ALB resources
             for i in $(seq 1 30); do
               echo "Waiting for ingress cleanup ($i/30)..."
               if ! kubectl get ingress -A 2>/dev/null | grep -q "alb"; then
@@ -97,5 +92,3 @@ jobs:
         env:
           TF_IN_AUTOMATION: "true"
         run: terraform destroy -auto-approve -input=false
-
-

@@ -8,9 +8,6 @@ variable "bucket_name_prefix" {
   type        = string
 }
 
-# Removed eks_security_group_id and mongodb_security_group_id variables
-# Security group rules are handled by the respective modules
-
 variable "name_prefix" {
   description = "Prefix for resource names"
   type        = string

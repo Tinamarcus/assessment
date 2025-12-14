@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tasky-app
-  namespace: wiz-exercise
+  name: tina-deployment
+  namespace: tina-ns
   labels:
     app: tasky
 spec:
@@ -15,7 +15,7 @@ spec:
       labels:
         app: tasky
     spec:
-      serviceAccountName: tasky-app-sa
+      serviceAccountName: tina-sa
       containers:
       - name: tasky
         image: ${container_image}
@@ -29,7 +29,7 @@ spec:
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: tasky-secrets
+              name: tina-secrets
               key: secret-key
         resources:
           requests:
@@ -50,4 +50,3 @@ spec:
             port: 8080
           initialDelaySeconds: 10
           periodSeconds: 5
-

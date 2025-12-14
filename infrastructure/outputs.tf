@@ -63,13 +63,3 @@ output "ecr_repository_url" {
   description = "ECR repository URL for application images"
   value       = module.ecr.repository_url
 }
-
-output "alb_dns_name" {
-  description = "ALB DNS name (get from Kubernetes Ingress after deployment)"
-  value       = "Run: kubectl get ingress tasky-ingress -n wiz-exercise -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
-}
-
-output "kubernetes_apply_command" {
-  description = "Command to apply Kubernetes manifests"
-  value       = "kubectl apply -f ../kubernetes/"
-}

@@ -10,7 +10,6 @@ resource "aws_s3_bucket" "mongodb_backups" {
   })
 }
 
-# S3 Block Public Access is enforced at the account level (BlockPublicAcls/BlockPublicPolicy),
 resource "aws_s3_bucket_public_access_block" "mongodb_backups" {
   bucket = aws_s3_bucket.mongodb_backups.id
 
