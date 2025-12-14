@@ -25,4 +25,4 @@ spec:
           service:
             name: tina-service
             port:
-              number: 80s
+              number: 80
