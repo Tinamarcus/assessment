@@ -16,7 +16,7 @@ on:
 
 env:
   AWS_REGION: us-east-2
-  ECR_REPOSITORY: tasky
+  ECR_REPOSITORY: images
 
 jobs:
   build-and-deploy:
@@ -124,26 +124,20 @@ jobs:
 
     - name: Generate Kubernetes manifests from templates (Terraform outputs)
       run: |
-        # Resolve runtime values
-        export container_image="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}"
+        set -euo pipefail
 
-        # Pull Terraform outputs from remote state
+        export TF_VAR_container_image="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.sha }}"
+        export TF_VAR_acm_certificate_arn="${{ secrets.ACM_CERTIFICATE_ARN || '' }}"
+
         terraform -chdir=infrastructure init -input=false
-        export mongodb_private_ip="$(terraform -chdir=infrastructure output -raw mongodb_vm_private_ip)"
 
-        if [ -z "$mongodb_private_ip" ]; then
-          echo "mongodb_vm_private_ip output is empty" >&2
-          exit 1
-        fi
-
-        # Generate manifests from templates
-        mkdir -p kubernetes
-        envsubst < kubernetes/templates/deployment.yaml.tpl > kubernetes/deployment.yaml
-        cp kubernetes/templates/ingress.yaml.tpl kubernetes/ingress.yaml
+        # Render manifests via the same Terraform code used locally (local_file resources)
+        terraform -chdir=infrastructure apply -auto-approve -input=false \
+          -target=local_file.deployment \
+          -target=local_file.ingress
 
         echo "Generated kubernetes/deployment.yaml and kubernetes/ingress.yaml"
-        echo "Using image: $container_image"
-        echo "Using MongoDB private IP: $mongodb_private_ip"
+        echo "Using image: $TF_VAR_container_image"
 
     - name: Update kubeconfig
       run: |
@@ -151,9 +145,19 @@ jobs:
 
     - name: Deploy to Kubernetes
       run: |
-        # Apply all Kubernetes manifests
-        kubectl apply --validate=false -f kubernetes/
+        set -euo pipefail
+
+        # Create namespace first to avoid ordering issues
+        kubectl apply -f kubernetes/namespace.yaml
+        kubectl get ns tina-ns
+
+        # Apply the rest
+        kubectl apply --validate=false -f kubernetes/secret.yaml
+        kubectl apply --validate=false -f kubernetes/serviceaccount.yaml
+        kubectl apply --validate=false -f kubernetes/rbac.yaml
+        kubectl apply --validate=false -f kubernetes/service.yaml
+        kubectl apply --validate=false -f kubernetes/deployment.yaml
+        kubectl apply --validate=false -f kubernetes/ingress.yaml
         
         # Wait for rollout
         kubectl rollout status deployment/tina-deployment -n tina-ns --timeout=5m
-
