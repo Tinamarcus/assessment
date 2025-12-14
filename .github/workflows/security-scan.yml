@@ -23,7 +23,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Run Checkov on Infrastructure
       uses: bridgecrewio/checkov-action@master
@@ -66,7 +66,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Run Trivy filesystem scan on Dockerfile
       uses: aquasecurity/trivy-action@master
@@ -93,7 +93,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Run Trivy on Go dependencies
       uses: aquasecurity/trivy-action@master
