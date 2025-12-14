@@ -147,7 +147,7 @@ jobs:
 
     - name: Update kubeconfig
       run: |
-        aws eks update-kubeconfig --name wiz-exercise-cluster --region ${{ env.AWS_REGION }}
+        aws eks update-kubeconfig --name tina-cluster --region ${{ env.AWS_REGION }}
 
     - name: Deploy to Kubernetes
       run: |
@@ -155,5 +155,5 @@ jobs:
         kubectl apply --validate=false -f kubernetes/
         
         # Wait for rollout
-        kubectl rollout status deployment/tasky-app -n wiz-exercise --timeout=5m
+        kubectl rollout status deployment/tina-deployment -n tina-ns --timeout=5m
 
