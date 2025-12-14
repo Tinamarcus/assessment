@@ -46,23 +46,6 @@ systemctl start mongod
 
 sleep 10
 
-# Create required DB users if they don't exist yet
-cat > /tmp/wiz-init-users.js <<'EOF'
-function ensureUser(dbName, user, pwd, roles) {
-  const d = db.getSiblingDB(dbName);
-  const existing = d.getUser(user);
-  if (!existing) {
-    print("Creating user: " + dbName + "." + user);
-    d.createUser({ user, pwd, roles });
-  } else {
-    print("User already exists: " + dbName + "." + user);
-  }
-}
-
-ensureUser("admin", "admin", "admin123", [{ role: "root", db: "admin" }]);
-ensureUser("go-mongodb", "appuser", "apppass123", [{ role: "readWrite", db: "go-mongodb" }]);
-EOF
-
 MONGO_SHELL=""
 if command -v mongosh >/dev/null 2>&1; then
   MONGO_SHELL="mongosh"
@@ -73,10 +56,24 @@ else
   exit 1
 fi
 
-${MONGO_SHELL} --quiet /tmp/wiz-init-users.js
+# Wait for mongod to accept connections
+for i in $(seq 1 30); do
+  if ${MONGO_SHELL} --quiet --eval "db.runCommand({ ping: 1 }).ok" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
 
-${MONGO_SHELL} --quiet --eval "db.getSiblingDB('admin').getUser('admin') ? 0 : (print('MISSING admin user'), 1)"
-${MONGO_SHELL} --quiet --eval "db.getSiblingDB('go-mongodb').getUser('appuser') ? 0 : (print('MISSING appuser in go-mongodb'), 1)"
+# Create admin user
+${MONGO_SHELL} --quiet --eval 'db.getSiblingDB("admin").createUser({user:"admin",pwd:"admin123",roles:[{role:"root",db:"admin"}]})' || true
+
+# Create application user in go-mongodb
+${MONGO_SHELL} -u admin -p admin123 --authenticationDatabase admin --quiet \
+  --eval 'db.getSiblingDB("go-mongodb").createUser({user:"appuser",pwd:"apppass123",roles:[{role:"readWrite",db:"go-mongodb"}]})' || true
+
+# Verify credentials work
+${MONGO_SHELL} -u admin -p admin123 --authenticationDatabase admin --quiet --eval 'db.runCommand({connectionStatus:1}).ok' >/dev/null
+${MONGO_SHELL} -u appuser -p apppass123 --authenticationDatabase go-mongodb --quiet --eval 'db.runCommand({connectionStatus:1}).ok' >/dev/null
 
 apt-get install -y awscli
 
